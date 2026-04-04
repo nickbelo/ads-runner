@@ -5,138 +5,687 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ads Runner — Admin</title>
 <style>
-  :root { --bg: #0f0f11; --card: #1a1a1f; --border: #2a2a32; --text: #e2e2e8; --muted: #888; --accent: #6c63ff; }
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0c0c0e;
+    --surface: #141418;
+    --surface2: #1c1c22;
+    --border: #2a2a35;
+    --border2: #383845;
+    --text: #e8e8f0;
+    --muted: #6e6e85;
+    --accent: #7c6af5;
+    --accent-dim: #3d3578;
+    --green: #4ade80;
+    --green-dim: #1a3d2b;
+    --red: #f87171;
+    --red-dim: #3d1a1a;
+    --amber: #fbbf24;
+    --amber-dim: #3d2e0a;
+    --blue: #60a5fa;
+    --blue-dim: #1a2d3d;
+    --purple: #c084fc;
+    --purple-dim: #2d1a3d;
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font: 15px/1.6 system-ui, sans-serif; padding: 24px; }
-  h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
-  p.sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-  .card h2 { font-size: 16px; font-weight: 500; margin-bottom: 14px; }
-  .drop-zone { border: 2px dashed var(--border); border-radius: 8px; padding: 32px; text-align: center; cursor: pointer; transition: border-color .2s; }
-  .drop-zone:hover, .drop-zone.over { border-color: var(--accent); }
-  .drop-zone p { color: var(--muted); font-size: 13px; margin-top: 8px; }
-  input[type=file] { display: none; }
-  .btn { display: inline-flex; align-items: center; gap: 6px; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px; cursor: pointer; }
-  .btn:hover { opacity: .85; }
-  .btn.danger { background: #c0392b; }
-  .form-row { display: flex; gap: 10px; margin-bottom: 10px; }
-  .form-row input, .form-row select { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-size: 14px; }
-  #slide-list { list-style: none; }
-  #slide-list li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
-  #slide-list li:last-child { border-bottom: none; }
-  .thumb { width: 80px; height: 48px; object-fit: cover; border-radius: 6px; background: var(--border); }
-  .slide-info { flex: 1; }
-  .slide-info strong { display: block; font-size: 14px; }
-  .slide-info span { font-size: 12px; color: var(--muted); }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
-  .badge.image { background: #1a3a5c; color: #7ab8f5; }
-  .badge.video { background: #3a1a3a; color: #c57af5; }
-  .badge.url { background: #1a3a2a; color: #7af5a8; }
-  .badge.youtube { background: #3a1a1a; color: #f57a7a; }
-  #toast { position: fixed; bottom: 24px; right: 24px; background: var(--accent); color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 14px; display: none; z-index: 99; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* Layout */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  header .logo {
+    width: 32px;
+    height: 32px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  header h1 {
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  header .host {
+    margin-left: auto;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--surface2);
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .card-header h2 {
+    font-size: 13px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+
+  .card-body {
+    padding: 20px;
+  }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 2px dashed var(--border2);
+    border-radius: 10px;
+    padding: 36px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+
+  .drop-zone:hover,
+  .drop-zone.over {
+    border-color: var(--accent);
+    background: rgba(124, 106, 245, 0.06);
+  }
+
+  .drop-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .drop-icon {
+    font-size: 32px;
+    margin-bottom: 10px;
+    opacity: 0.6;
+  }
+
+  .drop-zone p {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 6px;
+  }
+
+  .drop-zone strong {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  /* Upload progress */
+  .upload-progress {
+    margin-top: 14px;
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .upload-progress.visible { display: flex; }
+
+  .progress-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .progress-bar-wrap {
+    flex: 1;
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.3s;
+  }
+
+  /* URL form */
+  .url-form {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .url-form select,
+  .url-form input[type="text"],
+  .url-form input[type="number"] {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .url-form select:focus,
+  .url-form input:focus {
+    border-color: var(--accent);
+  }
+
+  .url-form select { min-width: 150px; }
+  .url-form input[type="text"] { flex: 1; min-width: 200px; }
+  .url-form input[type="number"] { width: 120px; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  .btn:hover { opacity: 0.85; }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-accent { background: var(--accent); color: #fff; }
+  .btn-ghost {
+    background: var(--surface2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--border2); }
+  .btn-danger { background: var(--red-dim); color: var(--red); border: 1px solid rgba(248,113,113,0.2); }
+  .btn-danger:hover { background: rgba(248,113,113,0.2); }
+
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+  /* Slide list */
+  #slide-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .slide-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn 0.25s ease;
+  }
+
+  .slide-item:last-child { border-bottom: none; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .slide-thumb {
+    width: 88px;
+    height: 52px;
+    border-radius: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .slide-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .slide-thumb .thumb-icon {
+    font-size: 20px;
+    opacity: 0.5;
+  }
+
+  .slide-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .slide-name {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+  }
+
+  .slide-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .badge-image  { background: var(--blue-dim);   color: var(--blue); }
+  .badge-video  { background: var(--purple-dim);  color: var(--purple); }
+  .badge-url    { background: var(--green-dim);   color: var(--green); }
+  .badge-youtube { background: var(--red-dim);    color: var(--red); }
+
+  .slide-duration {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .slide-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  /* Empty + loading states */
+  .state-msg {
+    padding: 32px 0;
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Playlist count badge */
+  .count-badge {
+    background: var(--accent-dim);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 11px 18px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.2s, transform 0.2s;
+  }
+
+  #toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  #toast.success { background: var(--green-dim); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
+  #toast.error   { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(248,113,113,0.2); }
 </style>
 </head>
 <body>
-<h1>Ads Runner</h1>
-<p class="sub">Manage slides displayed on the TV · accessible on your local network</p>
 
-<div class="card">
-  <h2>Upload media</h2>
-  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
-    <button class="btn">Choose files</button>
-    <p>or drag & drop here · JPG, PNG, GIF, WebP, MP4, WebM, MOV</p>
+<header>
+  <div class="logo">▶</div>
+  <h1>Ads Runner</h1>
+  <span class="host">raspberrypi-1.local:3001</span>
+</header>
+
+<div class="container">
+
+  <!-- Upload card -->
+  <div class="card">
+    <div class="card-header">
+      <h2>Upload media</h2>
+    </div>
+    <div class="card-body">
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="file-input" multiple accept="image/*,video/*" onchange="handleFiles(this.files)">
+        <div class="drop-icon">⬆</div>
+        <div><strong>Click to browse</strong> or drag files here</div>
+        <p>JPG · PNG · GIF · WebP · MP4 · WebM · MOV</p>
+      </div>
+      <div class="upload-progress" id="upload-progress"></div>
+    </div>
   </div>
-  <input type="file" id="file-input" multiple accept="image/*,video/*" onchange="handleFiles(this.files)">
-</div>
 
-<div class="card">
-  <h2>Add URL or YouTube video</h2>
-  <div class="form-row">
-    <select id="url-type">
-      <option value="url">Website URL</option>
-      <option value="youtube">YouTube video</option>
-    </select>
-    <input type="text" id="url-src" placeholder="https://...">
-    <input type="number" id="url-duration" placeholder="Duration (s)" value="30" style="max-width:140px">
-    <button class="btn" onclick="addUrlSlide()">Add</button>
+  <!-- URL / YouTube card -->
+  <div class="card">
+    <div class="card-header">
+      <h2>Add URL or YouTube</h2>
+    </div>
+    <div class="card-body">
+      <div class="url-form">
+        <select id="url-type">
+          <option value="url">🌐 Website URL</option>
+          <option value="youtube">▶ YouTube video</option>
+        </select>
+        <input type="text" id="url-src" placeholder="https://...">
+        <input type="number" id="url-duration" value="30" min="3" max="3600" placeholder="Duration (s)">
+        <button class="btn btn-accent" onclick="addUrlSlide()">Add slide</button>
+      </div>
+    </div>
   </div>
-</div>
 
-<div class="card">
-  <h2>Current playlist</h2>
-  <ul id="slide-list"><li style="color:var(--muted);font-size:14px">Loading...</li></ul>
+  <!-- Playlist card -->
+  <div class="card">
+    <div class="card-header">
+      <h2>Current playlist</h2>
+      <span class="count-badge" id="slide-count">0 slides</span>
+    </div>
+    <div class="card-body" style="padding: 0 20px;">
+      <ul id="slide-list">
+        <li class="state-msg"><span class="spinner"></span>Loading playlist...</li>
+      </ul>
+    </div>
+  </div>
+
 </div>
 
 <div id="toast"></div>
 
 <script>
+// Fix 4: All API calls use relative URLs (same origin = port 3001)
+// Media thumbnails also served from port 3001 via /media/ route
+
 async function loadSlides() {
-  const res = await fetch('/api/slides');
-  const slides = await res.json();
   const list = document.getElementById('slide-list');
-  if (!slides.length) { list.innerHTML = '<li style="color:var(--muted);font-size:14px">No slides yet.</li>'; return; }
-  list.innerHTML = slides.map(s => `
-    <li>
-      ${s.type === 'image' ? `<img class="thumb" src="/media/${s.src}" alt="">` : `<div class="thumb" style="display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted)">${s.type}</div>`}
-      <div class="slide-info">
-        <strong>${s.src || s.type}</strong>
-        <span>${s.duration}s &nbsp;</span><span class="badge ${s.type}">${s.type}</span>
-      </div>
-      <button class="btn danger" onclick="deleteSlide('${s.id}')">Remove</button>
-    </li>
-  `).join('');
+  try {
+    const res = await fetch('/api/slides');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const slides = await res.json();
+
+    document.getElementById('slide-count').textContent =
+      slides.length === 1 ? '1 slide' : `${slides.length} slides`;
+
+    if (!slides.length) {
+      list.innerHTML = '<li class="state-msg">No slides yet. Upload media or add a URL above.</li>';
+      return;
+    }
+
+    list.innerHTML = '';
+    slides.forEach(slide => {
+      const li = document.createElement('li');
+      li.className = 'slide-item';
+      li.dataset.id = slide.id;
+
+      // Thumbnail
+      let thumbHtml = '';
+      if (slide.type === 'image') {
+        // Fix 4: /media/ is served by upload_app.py on this same port (3001)
+        thumbHtml = `<img src="/media/${slide.src}" alt="" onerror="this.parentElement.innerHTML='<span class=thumb-icon>🖼</span>'">`;
+      } else if (slide.type === 'video') {
+        thumbHtml = `<span class="thumb-icon">🎬</span>`;
+      } else if (slide.type === 'youtube') {
+        thumbHtml = `<span class="thumb-icon">▶</span>`;
+      } else {
+        thumbHtml = `<span class="thumb-icon">🌐</span>`;
+      }
+
+      const badgeClass = `badge-${slide.type}`;
+      const label = slide.type === 'image' || slide.type === 'video'
+        ? slide.src
+        : slide.src;
+
+      li.innerHTML = `
+        <div class="slide-thumb">${thumbHtml}</div>
+        <div class="slide-info">
+          <div class="slide-name" title="${slide.src}">${label}</div>
+          <div class="slide-meta">
+            <span class="badge ${badgeClass}">${slide.type}</span>
+            <span class="slide-duration">${slide.duration}s</span>
+          </div>
+        </div>
+        <div class="slide-actions">
+          <button class="btn btn-ghost btn-sm" onclick="toggleSlide('${slide.id}', ${!slide.active})">
+            ${slide.active ? 'Hide' : 'Show'}
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="deleteSlide('${slide.id}')">Remove</button>
+        </div>
+      `;
+      list.appendChild(li);
+    });
+
+  } catch (err) {
+    list.innerHTML = `<li class="state-msg" style="color:var(--red)">Failed to load slides: ${err.message}</li>`;
+    console.error('loadSlides error:', err);
+  }
 }
 
 async function handleFiles(files) {
-  for (const file of files) {
-    const fd = new FormData();
-    fd.append('file', file);
-    const res = await fetch('/api/upload', { method: 'POST', body: fd });
-    const data = await res.json();
-    if (data.filename) {
+  const progressWrap = document.getElementById('upload-progress');
+  progressWrap.innerHTML = '';
+  progressWrap.classList.add('visible');
+
+  for (const file of Array.from(files)) {
+    // Add a progress row
+    const itemId = `prog-${Date.now()}`;
+    const row = document.createElement('div');
+    row.className = 'progress-item';
+    row.id = itemId;
+    row.innerHTML = `
+      <span style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${file.name}</span>
+      <div class="progress-bar-wrap"><div class="progress-bar" id="bar-${itemId}"></div></div>
+      <span id="status-${itemId}" style="min-width:48px;text-align:right">0%</span>
+    `;
+    progressWrap.appendChild(row);
+
+    try {
+      // Simulate progress while uploading
+      const bar = document.getElementById(`bar-${itemId}`);
+      const statusEl = document.getElementById(`status-${itemId}`);
+      let pct = 0;
+      const interval = setInterval(() => {
+        pct = Math.min(pct + Math.random() * 15, 90);
+        bar.style.width = pct + '%';
+        statusEl.textContent = Math.round(pct) + '%';
+      }, 200);
+
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+
+      clearInterval(interval);
+
+      if (data.error) {
+        bar.style.background = 'var(--red)';
+        bar.style.width = '100%';
+        statusEl.textContent = 'Error';
+        statusEl.style.color = 'var(--red)';
+        toast(`Error: ${data.error}`, 'error');
+        continue;
+      }
+
+      bar.style.width = '100%';
+      statusEl.textContent = 'Done';
+      statusEl.style.color = 'var(--green)';
+
+      // Register slide
       await fetch('/api/slides', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: data.type, src: data.filename, duration: 10 })
+        body: JSON.stringify({
+          type: data.type,
+          src: data.filename,
+          duration: data.type === 'video' ? 60 : 10
+        })
       });
+
       toast(`Uploaded: ${file.name}`);
+    } catch (err) {
+      toast(`Upload failed: ${file.name}`, 'error');
+      console.error('Upload error:', err);
     }
   }
-  loadSlides();
+
+  await loadSlides();
+
+  setTimeout(() => {
+    progressWrap.classList.remove('visible');
+    progressWrap.innerHTML = '';
+  }, 3000);
 }
 
 async function addUrlSlide() {
   const type = document.getElementById('url-type').value;
   const src = document.getElementById('url-src').value.trim();
   const duration = parseInt(document.getElementById('url-duration').value) || 30;
-  if (!src) return;
-  await fetch('/api/slides', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type, src, duration })
-  });
-  document.getElementById('url-src').value = '';
-  toast('Slide added');
-  loadSlides();
+
+  if (!src) {
+    toast('Please enter a URL', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/slides', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, src, duration })
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    document.getElementById('url-src').value = '';
+    toast('Slide added to playlist');
+    await loadSlides();
+  } catch (err) {
+    toast(`Failed to add slide: ${err.message}`, 'error');
+  }
 }
 
 async function deleteSlide(id) {
-  await fetch(`/api/slides/${id}`, { method: 'DELETE' });
-  toast('Slide removed');
-  loadSlides();
+  try {
+    const res = await fetch(`/api/slides/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    toast('Slide removed');
+    await loadSlides();
+  } catch (err) {
+    toast(`Failed to remove: ${err.message}`, 'error');
+  }
 }
 
-function toast(msg) {
+async function toggleSlide(id, activeState) {
+  try {
+    const slides = await (await fetch('/api/slides')).json();
+    const updated = slides.map(s =>
+      s.id === id ? { ...s, active: activeState } : s
+    );
+    await fetch('/api/slides/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated)
+    });
+    toast(activeState ? 'Slide shown' : 'Slide hidden');
+    await loadSlides();
+  } catch (err) {
+    toast('Failed to update slide', 'error');
+  }
+}
+
+// Toast helper
+let toastTimer = null;
+function toast(msg, type = 'success') {
   const el = document.getElementById('toast');
-  el.textContent = msg; el.style.display = 'block';
-  setTimeout(() => el.style.display = 'none', 2500);
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3000);
 }
 
+// Drag and drop
 const dz = document.getElementById('drop-zone');
 dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
 dz.addEventListener('dragleave', () => dz.classList.remove('over'));
-dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); handleFiles(e.dataTransfer.files); });
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('over');
+  handleFiles(e.dataTransfer.files);
+});
 
+// Initial load
 loadSlides();
 </script>
 </body>
