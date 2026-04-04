@@ -5,20 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ads Runner — Login</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
+  /* ── Warm light theme — matches admin.html ───────────────────────────────── */
   :root {
-    --bg: #09090b;
-    --surface: #111114;
-    --surface2: #1a1a1f;
-    --border: #222228;
-    --border2: #2e2e38;
-    --text: #ededf0;
-    --muted: #5a5a6e;
-    --accent: #7c6af5;
-    --accent-glow: rgba(124, 106, 245, 0.15);
-    --red: #f87171;
-    --red-dim: rgba(248, 113, 113, 0.1);
+    --bg:         #f5f4f0;
+    --surface:    #ffffff;
+    --surface2:   #f9f8f5;
+    --border:     #e5e3dc;
+    --border2:    #d4d0c8;
+    --text:       #1c1917;
+    --text2:      #44403c;
+    --muted:      #78716c;
+    --accent:     #5b4cf5;
+    --accent-bg:  #eeecfd;
+    --accent-dim: #ddd9fb;
+    --red:        #dc2626;
+    --red-bg:     #fee2e2;
+    --green:      #16a34a;
+    --shadow-sm:  0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md:  0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
   }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -26,7 +32,7 @@
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Geist', sans-serif;
     min-height: 100vh;
     display: flex;
     align-items: center;
@@ -35,216 +41,217 @@
     overflow: hidden;
   }
 
-  /* Subtle grid background */
+  /* Subtle warm dot grid */
   body::before {
     content: '';
     position: fixed;
     inset: 0;
-    background-image:
-      linear-gradient(rgba(124,106,245,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(124,106,245,0.03) 1px, transparent 1px);
-    background-size: 48px 48px;
+    background-image: radial-gradient(circle, #c8c4bc 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: 0.45;
     pointer-events: none;
   }
 
-  /* Glow orb */
+  /* Soft accent glow from top */
   body::after {
     content: '';
     position: fixed;
-    top: -200px;
+    top: -160px;
     left: 50%;
     transform: translateX(-50%);
-    width: 600px;
-    height: 600px;
-    background: radial-gradient(circle, rgba(124,106,245,0.08) 0%, transparent 70%);
+    width: 560px;
+    height: 480px;
+    background: radial-gradient(circle, rgba(91,76,245,0.07) 0%, transparent 70%);
     pointer-events: none;
   }
 
+  /* ── Login card ───────────────────────────────────────────────────────────── */
   .login-wrap {
     width: 100%;
-    max-width: 380px;
-    padding: 24px;
+    max-width: 384px;
+    padding: 20px;
     position: relative;
     z-index: 1;
-    animation: rise 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: rise 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   @keyframes rise {
-    from { opacity: 0; transform: translateY(16px); }
+    from { opacity: 0; transform: translateY(14px); }
     to   { opacity: 1; transform: translateY(0); }
   }
 
-  /* Logo mark */
+  /* ── Logo mark ────────────────────────────────────────────────────────────── */
   .logo-mark {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 36px;
+    margin-bottom: 28px;
   }
 
   .logo-icon {
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
     background: var(--accent);
-    border-radius: 10px;
+    border-radius: 9px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
-    box-shadow: 0 0 24px var(--accent-glow);
+    font-size: 15px;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(91,76,245,0.25);
+    flex-shrink: 0;
   }
 
   .logo-text {
     font-size: 15px;
-    font-weight: 500;
-    letter-spacing: 0.01em;
+    font-weight: 600;
+    letter-spacing: -0.01em;
     color: var(--text);
   }
 
   .logo-sub {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--muted);
-    font-family: 'DM Mono', monospace;
+    font-family: 'Geist Mono', monospace;
+    margin-top: 1px;
   }
 
-  /* Card */
+  /* ── Card ─────────────────────────────────────────────────────────────────── */
   .card {
     background: var(--surface);
-    border: 1px solid var(--border2);
-    border-radius: 16px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
     padding: 28px;
-    box-shadow: 0 4px 40px rgba(0,0,0,0.4);
+    box-shadow: var(--shadow-md);
   }
 
   .card h1 {
-    font-size: 20px;
-    font-weight: 500;
-    margin-bottom: 6px;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 5px;
     color: var(--text);
   }
 
   .card p {
     font-size: 13px;
     color: var(--muted);
-    margin-bottom: 28px;
+    margin-bottom: 24px;
     line-height: 1.5;
   }
 
-  /* Form */
-  .field {
-    margin-bottom: 16px;
-  }
+  /* ── Form field ───────────────────────────────────────────────────────────── */
+  .field { margin-bottom: 16px; }
 
   .field label {
     display: block;
     font-size: 12px;
-    font-weight: 500;
-    color: var(--muted);
+    font-weight: 600;
+    color: var(--text2);
     text-transform: uppercase;
     letter-spacing: 0.07em;
-    margin-bottom: 8px;
-    font-family: 'DM Mono', monospace;
+    margin-bottom: 7px;
+    font-family: 'Geist Mono', monospace;
   }
 
-  .input-wrap {
-    position: relative;
-  }
+  .input-wrap { position: relative; }
 
   .field input {
     width: 100%;
     background: var(--surface2);
     border: 1px solid var(--border2);
-    border-radius: 10px;
-    padding: 11px 44px 11px 14px;
+    border-radius: 9px;
+    padding: 10px 42px 10px 13px;
     color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 15px;
+    font-family: 'Geist', sans-serif;
+    font-size: 14px;
     outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
   }
+
+  .field input::placeholder { color: var(--muted); }
 
   .field input:focus {
+    background: var(--surface);
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-glow);
+    box-shadow: 0 0 0 3px var(--accent-dim);
   }
 
-  /* Show/hide password toggle */
+  /* ── Show/hide password toggle ────────────────────────────────────────────── */
   .toggle-pw {
     position: absolute;
-    right: 12px;
+    right: 11px;
     top: 50%;
     transform: translateY(-50%);
     background: none;
     border: none;
     cursor: pointer;
     color: var(--muted);
-    font-size: 16px;
+    font-size: 15px;
     padding: 4px;
     line-height: 1;
     transition: color 0.15s;
+    border-radius: 4px;
   }
 
-  .toggle-pw:hover { color: var(--text); }
+  .toggle-pw:hover { color: var(--text2); }
 
-  /* Error message */
+  /* ── Error message ────────────────────────────────────────────────────────── */
   #error-msg {
     display: none;
-    background: var(--red-dim);
-    border: 1px solid rgba(248, 113, 113, 0.2);
+    background: var(--red-bg);
+    border: 1px solid #fca5a5;
     border-radius: 8px;
-    padding: 10px 14px;
+    padding: 9px 13px;
     font-size: 13px;
     color: var(--red);
     margin-bottom: 16px;
-    animation: shake 0.3s ease;
+    animation: shake 0.28s ease;
   }
 
   @keyframes shake {
     0%,100% { transform: translateX(0); }
-    25%      { transform: translateX(-6px); }
-    75%      { transform: translateX(6px); }
+    25%      { transform: translateX(-5px); }
+    75%      { transform: translateX(5px); }
   }
 
   #error-msg.show { display: block; }
 
-  /* Submit button */
+  /* ── Sign in button ───────────────────────────────────────────────────────── */
   .btn-login {
     width: 100%;
     background: var(--accent);
     color: #fff;
     border: none;
-    border-radius: 10px;
-    padding: 12px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 15px;
+    border-radius: 9px;
+    padding: 11px;
+    font-family: 'Geist', sans-serif;
+    font-size: 14px;
     font-weight: 500;
     cursor: pointer;
-    transition: opacity 0.15s, transform 0.1s, box-shadow 0.2s;
-    box-shadow: 0 4px 20px var(--accent-glow);
+    transition: background 0.15s, opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+    box-shadow: 0 2px 8px rgba(91,76,245,0.3);
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    margin-top: 8px;
+    margin-top: 6px;
   }
 
   .btn-login:hover:not(:disabled) {
-    opacity: 0.9;
-    box-shadow: 0 4px 28px rgba(124,106,245,0.35);
+    background: #4a3ce0;
+    box-shadow: 0 4px 16px rgba(91,76,245,0.35);
   }
 
   .btn-login:active:not(:disabled) { transform: scale(0.98); }
 
-  .btn-login:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
+  .btn-login:disabled { opacity: 0.55; cursor: not-allowed; }
 
   /* Spinner inside button */
   .btn-spinner {
-    width: 15px;
-    height: 15px;
-    border: 2px solid rgba(255,255,255,0.3);
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.35);
     border-top-color: #fff;
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
@@ -253,16 +260,17 @@
 
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .btn-login.loading .btn-label { display: none; }
+  .btn-login.loading .btn-label  { display: none; }
   .btn-login.loading .btn-spinner { display: block; }
 
-  /* Footer note */
+  /* ── Footer note ──────────────────────────────────────────────────────────── */
   .footer-note {
     text-align: center;
-    margin-top: 20px;
-    font-size: 12px;
+    margin-top: 18px;
+    font-size: 11px;
     color: var(--muted);
-    font-family: 'DM Mono', monospace;
+    font-family: 'Geist Mono', monospace;
+    letter-spacing: 0.02em;
   }
 </style>
 </head>
@@ -315,7 +323,6 @@
   const loginBtn = document.getElementById('login-btn');
   const errorMsg = document.getElementById('error-msg');
 
-  // Allow Enter key to submit
   passwordInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') doLogin();
   });
@@ -329,7 +336,6 @@
   function showError(msg) {
     errorMsg.textContent = msg;
     errorMsg.classList.remove('show');
-    // Force reflow to restart animation
     void errorMsg.offsetWidth;
     errorMsg.classList.add('show');
   }
@@ -356,9 +362,9 @@
       const data = await res.json();
 
       if (res.ok && data.ok) {
-        // Small success pause before redirect for UX feel
-        loginBtn.style.background = '#4ade80';
-        await new Promise(r => setTimeout(r, 400));
+        loginBtn.style.background = '#16a34a';
+        loginBtn.style.boxShadow = '0 2px 8px rgba(22,163,74,0.3)';
+        await new Promise(r => setTimeout(r, 380));
         window.location.href = '/';
       } else {
         showError(data.error || 'Login failed. Please try again.');
@@ -371,6 +377,7 @@
       loginBtn.classList.remove('loading');
       loginBtn.disabled = false;
       loginBtn.style.background = '';
+      loginBtn.style.boxShadow = '';
     }
   }
 </script>
