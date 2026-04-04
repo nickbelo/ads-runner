@@ -1,0 +1,9 @@
+# Ads Runner — allow pi user to restart only these two services without password
+# Install with:
+#   sudo visudo -f /etc/sudoers.d/ads-runner
+# Or:
+#   sudo cp ads-runner-sudoers /etc/sudoers.d/ads-runner
+#   sudo chmod 440 /etc/sudoers.d/ads-runner
+
+pi ALL=(ALL) NOPASSWD: /bin/systemctl restart ads-runner
+pi ALL=(ALL) NOPASSWD: /bin/systemctl restart ads-upload

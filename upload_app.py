@@ -1,6 +1,7 @@
 from flask import (
     Flask, render_template, request, jsonify,
-    send_from_directory, session, redirect, url_for
+    send_from_directory, session, redirect, url_for,
+    Response, stream_with_context
 )
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
@@ -8,6 +9,9 @@ from functools import wraps
 import json
 import os
 import uuid
+import subprocess
+import threading
+import datetime
 
 try:
     import bcrypt
@@ -185,6 +189,118 @@ def upload_file():
     file.save(os.path.join(MEDIA_DIR, unique_name))
     file_type = 'video' if ext in {'mp4', 'webm', 'mov'} else 'image'
     return jsonify({'filename': unique_name, 'type': file_type, 'url': f'/media/{unique_name}'})
+
+
+# ── Deploy ────────────────────────────────────────────────────────────────────
+_deploy_lock = threading.Lock()
+
+
+def run_deploy():
+    """
+    Generator that runs each deploy step as a subprocess and yields
+    log lines in real time. Yields structured lines:
+      [STATUS] message   — INFO / OK / ERROR / WARN
+    """
+    steps = [
+        {
+            'label': 'Fetching latest code from GitHub',
+            'cmd': ['git', '-C', BASE_DIR, 'fetch', '--all'],
+        },
+        {
+            'label': 'Pulling changes (main branch)',
+            'cmd': ['git', '-C', BASE_DIR, 'reset', '--hard', 'origin/main'],
+        },
+        {
+            'label': 'Installing / updating dependencies',
+            'cmd': [
+                os.path.join(BASE_DIR, 'venv/bin/pip'),
+                'install', '-r', os.path.join(BASE_DIR, 'requirements.txt'),
+                '--quiet'
+            ],
+        },
+        {
+            'label': 'Restarting player service (ads-runner)',
+            'cmd': ['sudo', 'systemctl', 'restart', 'ads-runner'],
+        },
+        {
+            'label': 'Restarting upload service (ads-upload)',
+            'cmd': ['sudo', 'systemctl', 'restart', 'ads-upload'],
+        },
+    ]
+
+    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    yield f"[INFO] Deploy started at {timestamp}\n"
+
+    overall_ok = True
+
+    for step in steps:
+        yield f"[INFO] ── {step['label']}...\n"
+        try:
+            result = subprocess.run(
+                step['cmd'],
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+            # Stream stdout lines
+            for line in result.stdout.splitlines():
+                if line.strip():
+                    yield f"[INFO] {line}\n"
+            # Stream stderr lines as warnings (pip uses stderr for progress)
+            for line in result.stderr.splitlines():
+                if line.strip():
+                    yield f"[WARN] {line}\n"
+
+            if result.returncode == 0:
+                yield f"[OK]   {step['label']} — done\n"
+            else:
+                yield f"[ERROR] {step['label']} failed (exit {result.returncode})\n"
+                overall_ok = False
+                # Don't abort — attempt remaining steps
+        except subprocess.TimeoutExpired:
+            yield f"[ERROR] {step['label']} timed out after 120s\n"
+            overall_ok = False
+        except Exception as e:
+            yield f"[ERROR] {step['label']} raised exception: {str(e)}\n"
+            overall_ok = False
+
+    if overall_ok:
+        yield "[OK]   ── All steps completed successfully\n"
+        yield "[DONE] success\n"
+    else:
+        yield "[WARN] ── Deploy finished with errors — check output above\n"
+        yield "[DONE] error\n"
+
+
+@app.route('/api/deploy', methods=['POST'])
+@login_required
+def deploy():
+    if not _deploy_lock.acquire(blocking=False):
+        return jsonify({'error': 'A deploy is already in progress'}), 409
+
+    def generate():
+        try:
+            yield from run_deploy()
+        finally:
+            _deploy_lock.release()
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/plain',
+        headers={
+            'X-Accel-Buffering': 'no',   # disable nginx buffering if behind proxy
+            'Cache-Control': 'no-cache',
+        }
+    )
+
+
+@app.route('/api/deploy/status', methods=['GET'])
+@login_required
+def deploy_status():
+    busy = not _deploy_lock.acquire(blocking=False)
+    if not busy:
+        _deploy_lock.release()
+    return jsonify({'deploying': busy})
 
 
 # ── Media serving ─────────────────────────────────────────────────────────────

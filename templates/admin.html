@@ -403,6 +403,120 @@
 
   #toast.success { background: var(--green-dim); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
   #toast.error   { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(248,113,113,0.2); }
+
+  /* Deploy card */
+  .deploy-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .deploy-info {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .deploy-info p {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .deploy-info strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 3px;
+  }
+
+  .btn-deploy {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border2);
+    gap: 8px;
+    min-width: 148px;
+    justify-content: center;
+  }
+
+  .btn-deploy:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .btn-deploy:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-deploy .deploy-spinner {
+    width: 13px;
+    height: 13px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: none;
+    flex-shrink: 0;
+  }
+
+  .btn-deploy.deploying .deploy-spinner { display: block; }
+  .btn-deploy.deploying .deploy-icon    { display: none; }
+
+  /* Deploy log terminal */
+  #deploy-log-wrap {
+    display: none;
+    margin-top: 16px;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+  }
+
+  #deploy-log-wrap.visible { display: block; }
+
+  #deploy-log {
+    background: #0a0a0c;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    color: #a0a0b0;
+    max-height: 280px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  #deploy-log .log-ok    { color: #4ade80; }
+  #deploy-log .log-error { color: #f87171; }
+  #deploy-log .log-warn  { color: #fbbf24; }
+  #deploy-log .log-info  { color: #a0a0b0; }
+  #deploy-log .log-done  { display: none; }
+
+  .deploy-result {
+    display: none;
+    margin-top: 10px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .deploy-result.success {
+    display: block;
+    background: var(--green-dim);
+    color: var(--green);
+    border: 1px solid rgba(74,222,128,0.2);
+  }
+
+  .deploy-result.error {
+    display: block;
+    background: var(--red-dim);
+    color: var(--red);
+    border: 1px solid rgba(248,113,113,0.2);
+  }
 </style>
 </head>
 <body>
@@ -463,13 +577,37 @@
     </div>
   </div>
 
-</div>
+  <!-- Deploy card -->
+  <div class="card">
+    <div class="card-header">
+      <h2>Remote deploy</h2>
+    </div>
+    <div class="card-body">
+      <div class="deploy-row">
+        <div class="deploy-info">
+          <strong>Pull latest from GitHub</strong>
+          <p>Runs <code style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent)">git pull</code>, updates dependencies, and restarts both services automatically.</p>
+        </div>
+        <button class="btn btn-deploy" id="deploy-btn" onclick="triggerDeploy()">
+          <span class="deploy-icon">⬇ Deploy</span>
+          <span class="deploy-spinner"></span>
+          <span class="deploy-label" style="display:none">Deploying...</span>
+        </button>
+      </div>
+
+      <div id="deploy-log-wrap">
+        <div id="deploy-log"></div>
+        <div class="deploy-result" id="deploy-result"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end .container -->
 
 <div id="toast"></div>
 
 <script>
-// Fix 4: All API calls use relative URLs (same origin = port 3001)
-// Media thumbnails also served from port 3001 via /media/ route
+// All API calls use relative URLs (same origin = port 3001)
 
 async function loadSlides() {
   const list = document.getElementById('slide-list');
@@ -700,6 +838,101 @@ async function apiFetch(url, options = {}) {
     return null;
   }
   return res;
+}
+
+// ── Deploy ────────────────────────────────────────────────────────────────────
+async function triggerDeploy() {
+  const btn        = document.getElementById('deploy-btn');
+  const logWrap    = document.getElementById('deploy-log-wrap');
+  const log        = document.getElementById('deploy-log');
+  const resultEl   = document.getElementById('deploy-result');
+
+  // Reset UI
+  btn.disabled = true;
+  btn.classList.add('deploying');
+  btn.querySelector('.deploy-label').style.display = 'inline';
+  logWrap.classList.add('visible');
+  log.innerHTML = '';
+  resultEl.className = 'deploy-result';
+  resultEl.textContent = '';
+
+  function appendLine(text) {
+    const line = document.createElement('span');
+    text = text.replace(/\n$/, '');
+    if (text.startsWith('[OK]'))    line.className = 'log-ok';
+    else if (text.startsWith('[ERROR]')) line.className = 'log-error';
+    else if (text.startsWith('[WARN]'))  line.className = 'log-warn';
+    else if (text.startsWith('[DONE]'))  line.className = 'log-done';
+    else                                 line.className = 'log-info';
+    line.textContent = text;
+    log.appendChild(line);
+    log.appendChild(document.createTextNode('\n'));
+    log.scrollTop = log.scrollHeight;
+
+    // Handle final status line
+    if (text.startsWith('[DONE]')) {
+      const success = text.includes('success');
+      resultEl.className = 'deploy-result ' + (success ? 'success' : 'error');
+      resultEl.textContent = success
+        ? '✓ Deploy successful — services are restarting'
+        : '✗ Deploy finished with errors — check the log above';
+
+      // Note: ads-upload restarts last, so this page will briefly disconnect.
+      // Reload after a short delay to reconnect.
+      if (success) {
+        setTimeout(() => {
+          resultEl.textContent += ' · Reloading page...';
+          setTimeout(() => window.location.reload(), 2500);
+        }, 1500);
+      }
+    }
+  }
+
+  try {
+    const res = await fetch('/api/deploy', { method: 'POST' });
+
+    if (res.status === 409) {
+      toast('A deploy is already running', 'error');
+      btn.disabled = false;
+      btn.classList.remove('deploying');
+      return;
+    }
+
+    if (!res.ok) {
+      toast(`Deploy failed to start (HTTP ${res.status})`, 'error');
+      btn.disabled = false;
+      btn.classList.remove('deploying');
+      return;
+    }
+
+    // Stream response line by line
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer    = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // keep incomplete last line
+      for (const line of lines) {
+        if (line.trim()) appendLine(line);
+      }
+    }
+    if (buffer.trim()) appendLine(buffer);
+
+  } catch (err) {
+    // Network error is expected when ads-upload restarts itself
+    appendLine('[WARN] Connection closed — service is restarting...');
+    resultEl.className = 'deploy-result success';
+    resultEl.textContent = '✓ Services restarting · Reloading page...';
+    setTimeout(() => window.location.reload(), 3500);
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('deploying');
+    btn.querySelector('.deploy-label').style.display = 'none';
+  }
 }
 
 // Initial load
