@@ -67,5 +67,85 @@ chmod +x /home/pi/deploy.sh
 
 ssh pi@raspberrypi-1.local '/home/pi/deploy.sh'
 
+#### 1.5 — Display server setup (Wayland/X11)
+#### Since you're on RPi OS with the 6.12 kernel, enable autologin and set the display properly:
 
+sudo raspi-config
+# → System Options → Boot / Auto Login → Desktop Autologin
+
+#### 1.6 — systemd services
+#### Create /etc/systemd/system/ads-runner.service:
+
+sudo nano /etc/systemd/system/ads-runner.service
+
+[Unit]
+Description=Ads Runner Media Slider
+After=network.target graphical-session.target
+Wants=graphical-session.target
+
+[Service]
+User=pi
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+WorkingDirectory=/home/pi/ads-runner
+ExecStart=/home/pi/ads-runner/venv/bin/gunicorn -w 1 -b 127.0.0.1:3000 app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
+
+#### Create /etc/systemd/system/ads-display.service (launches Chromium kiosk):
+
+sudo nano /etc/systemd/system/ads-display.service
+
+[Unit]
+Description=Ads Runner Chromium Kiosk
+After=ads-runner.service graphical-session.target
+Wants=graphical-session.target
+
+[Service]
+User=pi
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+ExecStartPre=/bin/sleep 4
+ExecStart=/usr/bin/chromium-browser \
+  --kiosk \
+  --noerrdialogs \
+  --disable-infobars \
+  --no-first-run \
+  --disable-translate \
+  --disable-features=TranslateUI \
+  --check-for-update-interval=31536000 \
+  --autoplay-policy=no-user-gesture-required \
+  http://localhost:3000
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=graphical-session.target
+
+#### Create /etc/systemd/system/ads-upload.service:
+
+sudo nano /etc/systemd/system/ads-upload.service
+
+[Unit]
+Description=Ads Runner Upload Service
+After=network.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/ads-runner
+ExecStart=/home/pi/ads-runner/venv/bin/gunicorn -w 2 -b 0.0.0.0:3001 upload_app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+
+### Enable all services
+
+sudo systemctl daemon-reload
+sudo systemctl enable ads-runner ads-display ads-upload
+sudo systemctl start ads-runner ads-uploads
 
