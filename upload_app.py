@@ -70,6 +70,34 @@ def save_slides(slides):
         json.dump(slides, f, indent=2)
 
 
+def get_video_duration(filepath, fallback=60):
+    """
+    Uses ffprobe to detect the duration of a video file in whole seconds.
+    Returns the detected duration as an int, or fallback if detection fails.
+    ffprobe is part of the ffmpeg package installed during initial RPi setup.
+    """
+    try:
+        result = subprocess.run(
+            [
+                'ffprobe',
+                '-v', 'error',
+                '-select_streams', 'v:0',
+                '-show_entries', 'format=duration',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                filepath
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            seconds = float(result.stdout.strip())
+            return max(1, round(seconds))
+    except Exception:
+        pass
+    return fallback
+
+
 def check_password(plain):
     env_data = load_env()
     hashed = env_data.get('ADMIN_PASSWORD_HASH', '')
@@ -184,11 +212,37 @@ def upload_file():
         return jsonify({'error': 'Empty filename'}), 400
     if not allowed_file(file.filename):
         return jsonify({'error': 'File type not allowed'}), 400
+
     ext = file.filename.rsplit('.', 1)[-1].lower()
-    unique_name = f"{uuid.uuid4()}.{ext}"
-    file.save(os.path.join(MEDIA_DIR, unique_name))
+
+    # Keep the original filename so users can identify media in the playlist.
+    # Append a 6-char unique suffix to prevent collisions (e.g. promo_a3f9b2.mp4).
+    base = secure_filename(file.filename.rsplit('.', 1)[0])
+    if not base:
+        base = 'media'
+    suffix = uuid.uuid4().hex[:6]
+    unique_name = f"{base}_{suffix}.{ext}"
+
+    save_path = os.path.join(MEDIA_DIR, unique_name)
+    file.save(save_path)
+
     file_type = 'video' if ext in {'mp4', 'webm', 'mov'} else 'image'
-    return jsonify({'filename': unique_name, 'type': file_type, 'url': f'/media/{unique_name}'})
+
+    # Auto-detect duration for videos; images default to 10s
+    if file_type == 'video':
+        duration = get_video_duration(save_path, fallback=60)
+        duration_source = 'detected'
+    else:
+        duration = 10
+        duration_source = 'default'
+
+    return jsonify({
+        'filename': unique_name,
+        'type': file_type,
+        'url': f'/media/{unique_name}',
+        'duration': duration,
+        'duration_source': duration_source
+    })
 
 
 # ── Deploy ────────────────────────────────────────────────────────────────────
