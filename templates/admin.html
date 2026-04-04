@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ads Runner — Admin</title>
+<style>
+  :root { --bg: #0f0f11; --card: #1a1a1f; --border: #2a2a32; --text: #e2e2e8; --muted: #888; --accent: #6c63ff; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.6 system-ui, sans-serif; padding: 24px; }
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+  p.sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+  .card h2 { font-size: 16px; font-weight: 500; margin-bottom: 14px; }
+  .drop-zone { border: 2px dashed var(--border); border-radius: 8px; padding: 32px; text-align: center; cursor: pointer; transition: border-color .2s; }
+  .drop-zone:hover, .drop-zone.over { border-color: var(--accent); }
+  .drop-zone p { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  input[type=file] { display: none; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-size: 14px; cursor: pointer; }
+  .btn:hover { opacity: .85; }
+  .btn.danger { background: #c0392b; }
+  .form-row { display: flex; gap: 10px; margin-bottom: 10px; }
+  .form-row input, .form-row select { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-size: 14px; }
+  #slide-list { list-style: none; }
+  #slide-list li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  #slide-list li:last-child { border-bottom: none; }
+  .thumb { width: 80px; height: 48px; object-fit: cover; border-radius: 6px; background: var(--border); }
+  .slide-info { flex: 1; }
+  .slide-info strong { display: block; font-size: 14px; }
+  .slide-info span { font-size: 12px; color: var(--muted); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+  .badge.image { background: #1a3a5c; color: #7ab8f5; }
+  .badge.video { background: #3a1a3a; color: #c57af5; }
+  .badge.url { background: #1a3a2a; color: #7af5a8; }
+  .badge.youtube { background: #3a1a1a; color: #f57a7a; }
+  #toast { position: fixed; bottom: 24px; right: 24px; background: var(--accent); color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 14px; display: none; z-index: 99; }
+</style>
+</head>
+<body>
+<h1>Ads Runner</h1>
+<p class="sub">Manage slides displayed on the TV · accessible on your local network</p>
+
+<div class="card">
+  <h2>Upload media</h2>
+  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <button class="btn">Choose files</button>
+    <p>or drag & drop here · JPG, PNG, GIF, WebP, MP4, WebM, MOV</p>
+  </div>
+  <input type="file" id="file-input" multiple accept="image/*,video/*" onchange="handleFiles(this.files)">
+</div>
+
+<div class="card">
+  <h2>Add URL or YouTube video</h2>
+  <div class="form-row">
+    <select id="url-type">
+      <option value="url">Website URL</option>
+      <option value="youtube">YouTube video</option>
+    </select>
+    <input type="text" id="url-src" placeholder="https://...">
+    <input type="number" id="url-duration" placeholder="Duration (s)" value="30" style="max-width:140px">
+    <button class="btn" onclick="addUrlSlide()">Add</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Current playlist</h2>
+  <ul id="slide-list"><li style="color:var(--muted);font-size:14px">Loading...</li></ul>
+</div>
+
+<div id="toast"></div>
+
+<script>
+async function loadSlides() {
+  const res = await fetch('/api/slides');
+  const slides = await res.json();
+  const list = document.getElementById('slide-list');
+  if (!slides.length) { list.innerHTML = '<li style="color:var(--muted);font-size:14px">No slides yet.</li>'; return; }
+  list.innerHTML = slides.map(s => `
+    <li>
+      ${s.type === 'image' ? `<img class="thumb" src="/media/${s.src}" alt="">` : `<div class="thumb" style="display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted)">${s.type}</div>`}
+      <div class="slide-info">
+        <strong>${s.src || s.type}</strong>
+        <span>${s.duration}s &nbsp;</span><span class="badge ${s.type}">${s.type}</span>
+      </div>
+      <button class="btn danger" onclick="deleteSlide('${s.id}')">Remove</button>
+    </li>
+  `).join('');
+}
+
+async function handleFiles(files) {
+  for (const file of files) {
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch('/api/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.filename) {
+      await fetch('/api/slides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: data.type, src: data.filename, duration: 10 })
+      });
+      toast(`Uploaded: ${file.name}`);
+    }
+  }
+  loadSlides();
+}
+
+async function addUrlSlide() {
+  const type = document.getElementById('url-type').value;
+  const src = document.getElementById('url-src').value.trim();
+  const duration = parseInt(document.getElementById('url-duration').value) || 30;
+  if (!src) return;
+  await fetch('/api/slides', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type, src, duration })
+  });
+  document.getElementById('url-src').value = '';
+  toast('Slide added');
+  loadSlides();
+}
+
+async function deleteSlide(id) {
+  await fetch(`/api/slides/${id}`, { method: 'DELETE' });
+  toast('Slide removed');
+  loadSlides();
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 2500);
+}
+
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); handleFiles(e.dataTransfer.files); });
+
+loadSlides();
+</script>
+</body>
+</html>

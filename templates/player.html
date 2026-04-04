@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ads Runner</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; width: 100vw; height: 100vh; overflow: hidden; }
+  #slide-container { width: 100%; height: 100%; position: relative; }
+  .slide { position: absolute; inset: 0; display: none; }
+  .slide.active { display: flex; align-items: center; justify-content: center; }
+  .slide img { width: 100%; height: 100%; object-fit: contain; }
+  .slide video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+  .slide iframe { width: 100%; height: 100%; border: none; }
+</style>
+</head>
+<body>
+<div id="slide-container"></div>
+<script>
+let slides = [], current = 0, timer = null;
+
+async function fetchSlides() {
+  const res = await fetch('/api/slides');
+  slides = (await res.json()).filter(s => s.active);
+}
+
+function buildSlide(s) {
+  const div = document.createElement('div');
+  div.className = 'slide';
+  div.dataset.id = s.id;
+
+  if (s.type === 'image') {
+    const img = document.createElement('img');
+    img.src = `/media/slides/${s.src}`;
+    div.appendChild(img);
+  } else if (s.type === 'video') {
+    const vid = document.createElement('video');
+    vid.src = `/media/slides/${s.src}`;
+    vid.muted = true; vid.autoplay = true; vid.loop = false;
+    vid.addEventListener('ended', () => nextSlide());
+    div.appendChild(vid);
+  } else if (s.type === 'youtube') {
+    const iframe = document.createElement('iframe');
+    const vid = s.src.includes('v=') ? s.src.split('v=')[1].split('&')[0] : s.src.split('/').pop();
+    iframe.src = `https://www.youtube.com/embed/${vid}?autoplay=1&mute=1&controls=0&loop=1&playlist=${vid}`;
+    iframe.allow = 'autoplay';
+    div.appendChild(iframe);
+  } else if (s.type === 'url') {
+    const iframe = document.createElement('iframe');
+    iframe.src = s.src;
+    div.appendChild(iframe);
+  }
+  return div;
+}
+
+function showSlide(index) {
+  clearTimeout(timer);
+  document.querySelectorAll('.slide').forEach(el => el.classList.remove('active'));
+  if (!slides.length) return;
+  current = ((index % slides.length) + slides.length) % slides.length;
+  const s = slides[current];
+  let el = document.querySelector(`[data-id="${s.id}"]`);
+  if (!el) { el = buildSlide(s); document.getElementById('slide-container').appendChild(el); }
+  el.classList.add('active');
+
+  if (s.type === 'video') {
+    const vid = el.querySelector('video');
+    if (vid) { vid.currentTime = 0; vid.play(); return; }
+  }
+  if (s.type !== 'video') {
+    timer = setTimeout(() => nextSlide(), (s.duration || 10) * 1000);
+  }
+}
+
+function nextSlide() { showSlide(current + 1); }
+
+async function init() {
+  await fetchSlides();
+  if (slides.length) {
+    slides.forEach(s => {
+      const el = buildSlide(s);
+      document.getElementById('slide-container').appendChild(el);
+    });
+    showSlide(0);
+  }
+  // Refresh playlist every 30s for live updates
+  setInterval(async () => {
+    const old = slides.map(s => s.id).join(',');
+    await fetchSlides();
+    const newIds = slides.map(s => s.id).join(',');
+    if (old !== newIds) {
+      document.getElementById('slide-container').innerHTML = '';
+      showSlide(0);
+    }
+  }, 30000);
+}
+
+init();
+</script>
+</body>
+</html>
