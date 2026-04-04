@@ -411,6 +411,7 @@
   <div class="logo">▶</div>
   <h1>Ads Runner</h1>
   <span class="host">raspberrypi-1.local:3001</span>
+  <button class="btn btn-ghost" onclick="doLogout()" style="margin-left:12px;font-size:13px;padding:6px 14px;">Sign out</button>
 </header>
 
 <div class="container">
@@ -684,6 +685,22 @@ dz.addEventListener('drop', e => {
   dz.classList.remove('over');
   handleFiles(e.dataTransfer.files);
 });
+
+// Logout
+async function doLogout() {
+  await fetch('/logout', { method: 'POST' });
+  window.location.href = '/login';
+}
+
+// Redirect to login if session expires (401 from any API call)
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, options);
+  if (res.status === 401) {
+    window.location.href = '/login';
+    return null;
+  }
+  return res;
+}
 
 // Initial load
 loadSlides();
