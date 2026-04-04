@@ -195,13 +195,32 @@ def upload_file():
 _deploy_lock = threading.Lock()
 
 
+def _restart_self_after_delay(delay=2.0):
+    """
+    Restarts ads-upload in a background thread after a short delay.
+    This lets the streaming response finish and flush to the browser
+    before this process is terminated by systemd.
+    """
+    def _do_restart():
+        import time
+        time.sleep(delay)
+        subprocess.run(['sudo', 'systemctl', 'restart', 'ads-upload'])
+    t = threading.Thread(target=_do_restart, daemon=True)
+    t.start()
+
+
 def run_deploy():
     """
     Generator that runs each deploy step as a subprocess and yields
     log lines in real time. Yields structured lines:
       [STATUS] message   — INFO / OK / ERROR / WARN
+
+    The final step (restarting ads-upload) is special: since this process
+    IS ads-upload, we fire the restart in a background thread after a short
+    delay and immediately yield success — giving the response time to flush
+    before systemd kills the old process.
     """
-    steps = [
+    regular_steps = [
         {
             'label': 'Fetching latest code from GitHub',
             'cmd': ['git', '-C', BASE_DIR, 'fetch', '--all'],
@@ -222,10 +241,6 @@ def run_deploy():
             'label': 'Restarting player service (ads-runner)',
             'cmd': ['sudo', 'systemctl', 'restart', 'ads-runner'],
         },
-        {
-            'label': 'Restarting upload service (ads-upload)',
-            'cmd': ['sudo', 'systemctl', 'restart', 'ads-upload'],
-        },
     ]
 
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -233,7 +248,7 @@ def run_deploy():
 
     overall_ok = True
 
-    for step in steps:
+    for step in regular_steps:
         yield f"[INFO] ── {step['label']}...\n"
         try:
             result = subprocess.run(
@@ -242,11 +257,10 @@ def run_deploy():
                 text=True,
                 timeout=120
             )
-            # Stream stdout lines
             for line in result.stdout.splitlines():
                 if line.strip():
                     yield f"[INFO] {line}\n"
-            # Stream stderr lines as warnings (pip uses stderr for progress)
+            # pip writes progress to stderr — surface as WARN not ERROR
             for line in result.stderr.splitlines():
                 if line.strip():
                     yield f"[WARN] {line}\n"
@@ -256,7 +270,6 @@ def run_deploy():
             else:
                 yield f"[ERROR] {step['label']} failed (exit {result.returncode})\n"
                 overall_ok = False
-                # Don't abort — attempt remaining steps
         except subprocess.TimeoutExpired:
             yield f"[ERROR] {step['label']} timed out after 120s\n"
             overall_ok = False
@@ -264,11 +277,23 @@ def run_deploy():
             yield f"[ERROR] {step['label']} raised exception: {str(e)}\n"
             overall_ok = False
 
+    # ── Self-restart step ─────────────────────────────────────────────────────
+    # We cannot wait() on our own restart — systemd will SIGTERM this process.
+    # Instead: schedule the restart 2s from now in a background thread so this
+    # generator has time to flush the final lines to the browser first.
+    yield f"[INFO] ── Restarting upload service (ads-upload)...\n"
     if overall_ok:
-        yield "[OK]   ── All steps completed successfully\n"
+        _restart_self_after_delay(delay=2.0)
+        yield f"[OK]   Restarting upload service (ads-upload) — restarting in background\n"
+        yield f"[OK]   ── All steps completed successfully\n"
+        yield f"[INFO] Service will restart in ~2 seconds. Page will reload automatically.\n"
         yield "[DONE] success\n"
     else:
-        yield "[WARN] ── Deploy finished with errors — check output above\n"
+        # Earlier steps failed — still restart so the service picks up any
+        # partial code changes, but report overall failure.
+        _restart_self_after_delay(delay=2.0)
+        yield f"[WARN] Restarting upload service (ads-upload) despite earlier errors\n"
+        yield f"[WARN] ── Deploy finished with errors — check output above\n"
         yield "[DONE] error\n"
 
 
