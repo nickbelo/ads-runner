@@ -172,8 +172,12 @@ if [[ -n "${LABWC_PID:-}" ]]; then
     echo "==> LABWC_PID detected (${LABWC_PID}), reloading labwc"
     kill -HUP "${LABWC_PID}" || true
     echo "labwc reload signal sent."
+elif LABWC_RUNNING_PID="$(pgrep -u "$(id -u)" labwc | head -n 1)"; [[ -n "${LABWC_RUNNING_PID}" ]]; then
+    echo "==> labwc process detected (${LABWC_RUNNING_PID}), reloading labwc"
+    kill -HUP "${LABWC_RUNNING_PID}" || true
+    echo "labwc reload signal sent."
 else
-    echo "No active LABWC_PID in this shell."
+    echo "No active labwc process was detected for this user."
     echo "Log out and back in, or reboot, to apply the cursor theme."
 fi
 
