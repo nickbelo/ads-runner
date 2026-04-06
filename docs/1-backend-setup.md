@@ -1,134 +1,142 @@
-##### 1.1 — OS Prep
+# Ads Runner Raspberry Pi 5 Deployment Guide
 
-###### SSH into your Pi first:
+This guide sets up a fresh Raspberry Pi 5 to run Ads Runner as a kiosk display plus a LAN admin panel.
 
-ssh pi@raspberrypi-1.local
+## What This Installs
 
-##### Update the system and install softwares
+- Player service: `http://localhost:3000`, shown full-screen on the TV by Chromium kiosk.
+- Admin service: `http://raspberrypi-1.local:3001`, used to upload media, manage slides, and trigger deploys.
+- Chromium kiosk autostart: `/home/pi/.config/autostart/ads-display.desktop`.
+- Media storage: `/home/pi/ads-runner/media/slides`.
+- Playlist file: `/home/pi/ads-runner/slides.json`.
 
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y git curl wget unzip ffmpeg chromium xdotool python3-pip python3-venv
+## Assumptions
 
-#### 1.2 — Install Node.js (needed even for Solution B for the upload tool's optional frontend build)
+- Raspberry Pi OS Desktop is installed.
+- The Linux user is `pi`.
+- The repo lives at `/home/pi/ads-runner`.
+- The repo remote is `git@github.com:nickbelo/ads-runner.git`.
 
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
-node -v  # should show v20.x
+The current Python code uses `/home/pi/ads-runner` as an absolute path, so keep the `pi` user and path unless you also update `app.py`, `upload_app.py`, `setup_auth.py`, and `ads-runner-sudoers`.
 
-#### 1.3 — Install Python dependencies
+This project does not use SQLite in the current implementation. Slides are stored in `slides.json`, which was chosen because it is lighter and simpler for this single-device kiosk.
 
-python3 -m venv /home/pi/ads-runner/venv
-source /home/pi/ads-runner/venv/bin/activate
-pip install flask flask-cors werkzeug gunicorn
+## 1. Prepare the Fresh Pi Before Cloning
 
-#### 1.4 — GitHub deploy setup (git pull method — zero CI cost)
-#### On the RPi, generate an SSH key and add it as a GitHub Deploy Key (read-only):
+On the new Raspberry Pi, download and run the prep script:
 
-ssh-keygen -t ed25519 -C "rpi-ads-runner-keys" -f ~/.ssh/github_deploy_key -N ""
-cat ~/.ssh/github_deploy_key.pub
-# Copy this output → GitHub Repo → Settings → Deploy Keys → Add key
+```bash
+curl -fsSL https://raw.githubusercontent.com/nickbelo/ads-runner/main/scripts/prepare-rpi5.sh -o /tmp/prepare-rpi5.sh
+chmod +x /tmp/prepare-rpi5.sh
+/tmp/prepare-rpi5.sh
+```
 
-#### Configure SSH to use this key for GitHub:
+The script updates the OS, installs required packages, checks SSH, creates the Chromium desktop autostart entry, creates the GitHub deploy key, and prints the public key.
 
-cat >> ~/.ssh/config << 'EOF'
-Host github.com
-  IdentityFile ~/.ssh/github_deploy_key
-  StrictHostKeyChecking no
-EOF
+It also installs the blank cursor theme used by kiosk mode. If you want to skip that during prep, run:
 
-#### Clone the repo
+```bash
+INSTALL_BLANK_CURSOR=0 /tmp/prepare-rpi5.sh
+```
 
+Add the printed public key to GitHub:
+
+```text
+Repository > Settings > Deploy keys > Add deploy key
+```
+
+Use read-only access unless you plan to push from the Raspberry Pi.
+
+If the script changed hostname or upgraded core OS packages, reboot:
+
+```bash
+sudo reboot
+```
+
+## 2. Enable Desktop Autologin
+
+Chromium kiosk needs a desktop session after boot.
+
+```bash
+sudo raspi-config
+```
+
+Choose:
+
+```text
+System Options > Boot / Auto Login > Desktop Autologin
+```
+
+Reboot after changing this setting.
+
+## 3. Clone the Repo
+
+```bash
 cd /home/pi
 git clone git@github.com:nickbelo/ads-runner.git
-
-#### 1.3 — Install Python dependencies
-
-python3 -m venv /home/pi/ads-runner/venv
-source /home/pi/ads-runner/venv/bin/activate
-pip install flask flask-cors werkzeug gunicorn
-
-### Create a deploy script at /home/pi/deploy.sh:
-
-cd /home/pi
-nano deploy.sh
-
-#!/bin/bash
 cd /home/pi/ads-runner
-git pull origin main
+```
+
+## 4. Create the Python Environment
+
+```bash
+cd /home/pi/ads-runner
+python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt --quiet
-sudo systemctl restart ads-runner
-sudo systemctl restart ads-upload
-echo "Deploy complete: $(date)"
+pip install --upgrade pip
+pip install -r requirements.txt
+mkdir -p media/slides
+```
 
-chmod +x /home/pi/deploy.sh
+## 5. Set the Admin Password
 
-# You can trigger this from your dev machine with:
+```bash
+cd /home/pi/ads-runner
+source venv/bin/activate
+python setup_auth.py
+```
 
-ssh pi@raspberrypi-1.local '/home/pi/deploy.sh'
+This creates `/home/pi/ads-runner/.env` with:
 
-#### 1.5 — Display server setup (Wayland/X11)
-#### Since you're on RPi OS with the 6.12 kernel, enable autologin and set the display properly:
+- `SECRET_KEY`
+- `ADMIN_PASSWORD_HASH`
 
-sudo raspi-config
-# → System Options → Boot / Auto Login → Desktop Autologin
+Do not commit `.env`.
 
-#### 1.6 — systemd services
-#### Create /etc/systemd/system/ads-runner.service:
+## 6. Install Passwordless Restart Permissions
 
-sudo nano /etc/systemd/system/ads-runner.service
+The web admin deploy button restarts `ads-runner` and `ads-upload`. Install the limited sudoers file:
 
+```bash
+cd /home/pi/ads-runner
+sudo cp ads-runner-sudoers /etc/sudoers.d/ads-runner
+sudo chmod 440 /etc/sudoers.d/ads-runner
+sudo visudo -cf /etc/sudoers.d/ads-runner
+```
+
+## 7. Install systemd Services
+
+Create `/etc/systemd/system/ads-runner.service`:
+
+```ini
 [Unit]
 Description=Ads Runner Media Slider
-After=network.target graphical-session.target
-Wants=graphical-session.target
+After=network.target
 
 [Service]
 User=pi
-Environment=DISPLAY=:0
-Environment=XAUTHORITY=/home/pi/.Xauthority
 WorkingDirectory=/home/pi/ads-runner
-ExecStart=/home/pi/ads-runner/venv/bin/gunicorn -w 1 -b 127.0.0.1:3000 app:app
+ExecStart=/home/pi/ads-runner/venv/bin/gunicorn --workers 1 --bind 127.0.0.1:3000 --chdir /home/pi/ads-runner app:app
 Restart=always
 RestartSec=5
 
 [Install]
-WantedBy=graphical-session.target
+WantedBy=multi-user.target
+```
 
-#### Create /etc/systemd/system/ads-display.service (launches Chromium kiosk):
+Create `/etc/systemd/system/ads-upload.service`:
 
-sudo nano /etc/systemd/system/ads-display.service
-
-[Unit]
-Description=Ads Runner Chromium Kiosk
-After=ads-runner.service graphical-session.target
-Wants=graphical-session.target
-
-[Service]
-User=pi
-Environment=DISPLAY=:0
-Environment=XAUTHORITY=/home/pi/.Xauthority
-ExecStartPre=/bin/sleep 4
-ExecStart=/usr/bin/chromium-browser \
-  --kiosk \
-  --noerrdialogs \
-  --disable-infobars \
-  --no-first-run \
-  --disable-translate \
-  --disable-features=TranslateUI \
-  --check-for-update-interval=31536000 \
-  --autoplay-policy=no-user-gesture-required \
-  http://localhost:3000
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=graphical-session.target
-
-#### Create /etc/systemd/system/ads-upload.service:
-
-sudo nano /etc/systemd/system/ads-upload.service
-
+```ini
 [Unit]
 Description=Ads Runner Upload Service
 After=network.target
@@ -136,28 +144,90 @@ After=network.target
 [Service]
 User=pi
 WorkingDirectory=/home/pi/ads-runner
-ExecStart=/home/pi/ads-runner/venv/bin/gunicorn -w 2 -b 0.0.0.0:3001 upload_app:app
+ExecStart=/home/pi/ads-runner/venv/bin/gunicorn --workers 2 --bind 0.0.0.0:3001 --chdir /home/pi/ads-runner upload_app:app
 Restart=always
 RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
+```
 
-### Enable all services
+Do not create a system-level `ads-display.service` for Chromium on Raspberry Pi OS Desktop with labwc/Wayland. During testing, this was unreliable after reboot because GUI apps need the user's desktop session, not only systemd's boot target.
 
+The prep script already creates `/home/pi/.config/autostart/ads-display.desktop`, which launches Chromium after Desktop Autologin starts. If you need to recreate it manually, use:
+
+```bash
+mkdir -p /home/pi/.config/autostart
+cat > /home/pi/.config/autostart/ads-display.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Ads Runner Display
+Exec=/bin/bash -c 'sleep 6 && chromium --kiosk --noerrdialogs --disable-infobars --no-first-run --disable-translate --check-for-update-interval=31536000 --autoplay-policy=no-user-gesture-required http://localhost:3000'
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+EOF
+```
+
+If your OS still uses the older binary name, replace `chromium` with `chromium-browser`.
+
+Enable and start the backend services:
+
+```bash
 sudo systemctl daemon-reload
-sudo systemctl enable ads-runner ads-display ads-upload
-sudo systemctl start ads-runner ads-uploads
+sudo systemctl enable ads-runner ads-upload
+sudo systemctl start ads-runner ads-upload
+```
 
-#### PROJECT STRUCTURE
+## 8. Verify or Re-run Blank Cursor Setup
 
-ads-runner/
-├── app.py                  # Flask app — slide player backend
-├── upload_app.py           # Flask app — upload & admin panel
-├── requirements.txt
-├── slides.json             # Playlist config (auto-generated)
-├── media/
-│   └── slides/            # uploaded files live here
-└── templates/
-    ├── player.html         # fullscreen slide player
-    └── admin.html         # upload + playlist manager
+The prep script runs the blank cursor installer by default. If it was skipped, failed because the repo was not reachable, or you want to run it again after cloning:
+
+```bash
+cd /home/pi/ads-runner
+chmod +x scripts/setup-blank-cursor.sh
+./scripts/setup-blank-cursor.sh
+sudo reboot
+```
+
+Rebooting is recommended so the desktop session picks up the cursor theme.
+
+## 9. Verify
+
+From the Pi:
+
+```bash
+curl http://localhost:3000/api/slides
+curl -I http://localhost:3001/login
+systemctl status ads-runner ads-upload
+```
+
+From a phone or laptop on the same Wi-Fi:
+
+```text
+http://raspberrypi-1.local:3001
+```
+
+Log in with the admin password you created in step 5.
+
+If you are testing with Raspberry Pi Connect screen sharing instead of an HDMI display, remember that it can behave differently from a physical TV output. To isolate app issues from display-session issues, open a terminal inside the screen sharing session and run:
+
+```bash
+chromium --kiosk --autoplay-policy=no-user-gesture-required --noerrdialogs --disable-infobars http://localhost:3000
+```
+
+If that works, the Flask app is healthy and any remaining issue is likely desktop autostart or HDMI/session related.
+
+## 10. Deploy Updates Later
+
+Use the deploy button in the admin page, or run:
+
+```bash
+cd /home/pi/ads-runner
+git fetch --all
+git reset --hard origin/main
+source venv/bin/activate
+pip install -r requirements.txt --quiet
+sudo systemctl restart ads-runner
+sudo systemctl restart ads-upload
+```
