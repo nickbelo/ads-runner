@@ -79,6 +79,19 @@ cd /home/pi/ads-runner
 
 ## 4. Create the Python Environment
 
+The easiest path is to run the post-clone installer:
+
+```bash
+cd /home/pi/ads-runner
+./scripts/install-rpi5-services.sh
+```
+
+This creates the Python venv, installs Python dependencies, creates `media/slides` and `slides.json`, prompts for the admin password if `.env` does not exist, installs the sudoers rule, writes the backend systemd services, enables them, and starts them.
+
+The remaining sections show the manual steps performed by the installer. You can skip sections 5 through 7 if `./scripts/install-rpi5-services.sh` completed successfully.
+
+## 5. Manual: Create the Python Environment
+
 ```bash
 cd /home/pi/ads-runner
 python3 -m venv venv
@@ -86,9 +99,10 @@ source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 mkdir -p media/slides
+test -s slides.json || printf '[]\n' > slides.json
 ```
 
-## 5. Set the Admin Password
+## 6. Manual: Set the Admin Password
 
 ```bash
 cd /home/pi/ads-runner
@@ -103,7 +117,7 @@ This creates `/home/pi/ads-runner/.env` with:
 
 Do not commit `.env`.
 
-## 6. Install Passwordless Restart Permissions
+## 7. Manual: Install Passwordless Restart Permissions
 
 The web admin deploy button restarts `ads-runner` and `ads-upload`. Install the limited sudoers file:
 
@@ -114,7 +128,7 @@ sudo chmod 440 /etc/sudoers.d/ads-runner
 sudo visudo -cf /etc/sudoers.d/ads-runner
 ```
 
-## 7. Install systemd Services
+## 8. Manual: Install systemd Services
 
 Create `/etc/systemd/system/ads-runner.service`:
 
@@ -179,7 +193,7 @@ sudo systemctl enable ads-runner ads-upload
 sudo systemctl start ads-runner ads-upload
 ```
 
-## 8. Verify or Re-run Blank Cursor Setup
+## 9. Verify or Re-run Blank Cursor Setup
 
 The prep script runs the blank cursor installer by default. If it was skipped, failed because the repo was not reachable, or you want to run it again after cloning:
 
@@ -192,7 +206,7 @@ sudo reboot
 
 Rebooting is recommended so the desktop session picks up the cursor theme.
 
-## 9. Verify
+## 10. Verify
 
 From the Pi:
 
@@ -218,7 +232,7 @@ chromium --kiosk --autoplay-policy=no-user-gesture-required --noerrdialogs --dis
 
 If that works, the Flask app is healthy and any remaining issue is likely desktop autostart or HDMI/session related.
 
-## 10. Deploy Updates Later
+## 11. Deploy Updates Later
 
 Use the deploy button in the admin page, or run:
 

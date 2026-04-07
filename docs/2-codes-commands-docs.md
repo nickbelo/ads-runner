@@ -15,6 +15,7 @@ ads-runner/
 |-- media/slides/           # Uploaded media files
 |-- scripts/
 |   |-- prepare-rpi5.sh     # Fresh Pi bootstrap script
+|   |-- install-rpi5-services.sh
 |   `-- setup-blank-cursor.sh
 `-- templates/
     |-- player.html

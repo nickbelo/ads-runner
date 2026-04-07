@@ -7,3 +7,4 @@ Start here:
 - Fresh Raspberry Pi setup: `docs/1-backend-setup.md`
 - Day-to-day commands and troubleshooting: `docs/2-codes-commands-docs.md`
 - Pre-clone Pi bootstrap script: `scripts/prepare-rpi5.sh`
+- Post-clone service installer: `scripts/install-rpi5-services.sh`
