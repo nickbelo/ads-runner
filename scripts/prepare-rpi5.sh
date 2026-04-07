@@ -59,16 +59,6 @@ else
   echo "SSH service was not found. If needed, enable SSH from Raspberry Pi Imager or raspi-config."
 fi
 
-if [[ -n "${HOSTNAME_VALUE}" ]]; then
-  CURRENT_HOSTNAME="$(hostname)"
-  if [[ "${CURRENT_HOSTNAME}" != "${HOSTNAME_VALUE}" ]]; then
-    echo "==> Setting hostname to ${HOSTNAME_VALUE}"
-    sudo hostnamectl set-hostname "${HOSTNAME_VALUE}"
-  else
-    echo "==> Hostname already set to ${HOSTNAME_VALUE}"
-  fi
-fi
-
 BROWSER_BIN="$(command -v chromium || command -v chromium-browser || true)"
 if [[ -z "${BROWSER_BIN}" ]]; then
   BROWSER_BIN="/usr/bin/chromium"

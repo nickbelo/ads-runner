@@ -47,7 +47,7 @@ Repository > Settings > Deploy keys > Add deploy key
 
 Use read-only access unless you plan to push from the Raspberry Pi.
 
-If the script changed hostname or upgraded core OS packages, reboot:
+If the script upgraded core OS packages, reboot:
 
 ```bash
 sudo reboot
