@@ -45,6 +45,21 @@ Add the printed public key to GitHub:
 Repository > Settings > Deploy keys > Add deploy key
 ```
 
+If you missed the printed key, print it again from the Pi:
+
+```bash
+cat ~/.ssh/github_deploy_key.pub
+```
+
+If that file does not exist, create the key manually:
+
+```bash
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+ssh-keygen -t ed25519 -C "rpi-ads-runner-$(hostname)" -f ~/.ssh/github_deploy_key -N ""
+cat ~/.ssh/github_deploy_key.pub
+```
+
 Use read-only access unless you plan to push from the Raspberry Pi.
 
 If the script upgraded core OS packages, reboot:

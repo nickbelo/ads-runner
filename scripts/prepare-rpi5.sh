@@ -7,7 +7,6 @@ set -euo pipefail
 ADS_USER="${ADS_USER:-pi}"
 ADS_HOME="/home/${ADS_USER}"
 ADS_DIR="${ADS_HOME}/ads-runner"
-HOSTNAME_VALUE="${ADS_HOSTNAME:-raspberrypi-1}"
 INSTALL_BLANK_CURSOR="${INSTALL_BLANK_CURSOR:-1}"
 REPO_RAW_BASE="${REPO_RAW_BASE:-https://raw.githubusercontent.com/nickbelo/ads-runner/main}"
 AUTOSTART_DIR="${ADS_HOME}/.config/autostart"
@@ -59,6 +58,29 @@ else
   echo "SSH service was not found. If needed, enable SSH from Raspberry Pi Imager or raspi-config."
 fi
 
+echo "==> Preparing GitHub deploy key"
+mkdir -p "${ADS_HOME}/.ssh"
+chmod 700 "${ADS_HOME}/.ssh"
+
+KEY_PATH="${ADS_HOME}/.ssh/github_deploy_key"
+if [[ ! -f "${KEY_PATH}" ]]; then
+  ssh-keygen -t ed25519 -C "rpi-ads-runner-$(hostname)" -f "${KEY_PATH}" -N ""
+else
+  echo "GitHub deploy key already exists at ${KEY_PATH}"
+fi
+
+SSH_CONFIG="${ADS_HOME}/.ssh/config"
+if ! grep -q "IdentityFile ${KEY_PATH}" "${SSH_CONFIG}" 2>/dev/null; then
+  cat >> "${SSH_CONFIG}" <<EOF
+
+Host github.com
+  IdentityFile ${KEY_PATH}
+  IdentitiesOnly yes
+  StrictHostKeyChecking accept-new
+EOF
+  chmod 600 "${SSH_CONFIG}"
+fi
+
 BROWSER_BIN="$(command -v chromium || command -v chromium-browser || true)"
 if [[ -z "${BROWSER_BIN}" ]]; then
   BROWSER_BIN="/usr/bin/chromium"
@@ -104,31 +126,6 @@ if [[ -e "${ADS_DIR}" ]]; then
   echo "If it is not a git clone yet, move it before running git clone."
 else
   echo "Clone target is available: ${ADS_DIR}"
-fi
-
-echo "==> Preparing SSH directory"
-mkdir -p "${ADS_HOME}/.ssh"
-chmod 700 "${ADS_HOME}/.ssh"
-
-KEY_PATH="${ADS_HOME}/.ssh/github_deploy_key"
-if [[ ! -f "${KEY_PATH}" ]]; then
-  echo "==> Creating GitHub deploy key at ${KEY_PATH}"
-  ssh-keygen -t ed25519 -C "rpi-ads-runner-${HOSTNAME_VALUE}" -f "${KEY_PATH}" -N ""
-else
-  echo "==> GitHub deploy key already exists at ${KEY_PATH}"
-fi
-
-SSH_CONFIG="${ADS_HOME}/.ssh/config"
-if ! grep -q "IdentityFile ${KEY_PATH}" "${SSH_CONFIG}" 2>/dev/null; then
-  echo "==> Adding GitHub deploy-key config"
-  cat >> "${SSH_CONFIG}" <<EOF
-
-Host github.com
-  IdentityFile ${KEY_PATH}
-  IdentitiesOnly yes
-  StrictHostKeyChecking accept-new
-EOF
-  chmod 600 "${SSH_CONFIG}"
 fi
 
 echo
