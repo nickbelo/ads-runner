@@ -212,6 +212,9 @@
 
   .progress-bar-wrap { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
   .progress-bar { height: 100%; background: var(--accent); border-radius: 2px; width: 0%; transition: width 0.3s; }
+  .progress-bar.processing { background: var(--amber); }
+  .progress-bar.done { background: var(--green); }
+  .progress-bar.error { background: var(--red); }
 
   /* ── URL form ────────────────────────────────────────────────────────────── */
   .url-form { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -563,6 +566,48 @@ async function loadSlides() {
   }
 }
 
+function uploadFileWithProgress(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const fd = new FormData();
+    fd.append('file', file);
+
+    xhr.open('POST', '/api/upload', true);
+    xhr.responseType = 'json';
+
+    xhr.upload.addEventListener('progress', event => {
+      if (!event.lengthComputable) return;
+      onProgress({
+        phase: 'uploading',
+        loaded: event.loaded,
+        total: event.total,
+        percent: Math.min(100, Math.round((event.loaded / event.total) * 100))
+      });
+    });
+
+    xhr.addEventListener('load', () => {
+      const data = xhr.response;
+      if (xhr.status >= 200 && xhr.status < 300 && data) {
+        resolve(data);
+        return;
+      }
+
+      let message = `HTTP ${xhr.status}`;
+      if (data && data.error) {
+        message = data.error;
+      } else if (xhr.responseText) {
+        message = xhr.responseText.slice(0, 200);
+      }
+      reject(new Error(message));
+    });
+
+    xhr.addEventListener('error', () => reject(new Error('Network error while uploading file')));
+    xhr.addEventListener('abort', () => reject(new Error('Upload was interrupted')));
+
+    xhr.send(fd);
+  });
+}
+
 async function handleFiles(files) {
   const progressWrap = document.getElementById('upload-progress');
   progressWrap.innerHTML = '';
@@ -583,21 +628,23 @@ async function handleFiles(files) {
     try {
       const bar = document.getElementById(`bar-${itemId}`);
       const statusEl = document.getElementById(`status-${itemId}`);
-      let pct = 0;
-      const interval = setInterval(() => {
-        pct = Math.min(pct + Math.random() * 15, 90);
-        bar.style.width = pct + '%';
-        statusEl.textContent = Math.round(pct) + '%';
-      }, 200);
+      const data = await uploadFileWithProgress(file, progress => {
+        bar.classList.remove('processing', 'done', 'error');
+        bar.style.width = `${progress.percent}%`;
 
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
-      const data = await res.json();
-      clearInterval(interval);
+        if (progress.percent >= 100) {
+          bar.classList.add('processing');
+          statusEl.textContent = 'Processing';
+          statusEl.style.color = 'var(--amber)';
+        } else {
+          statusEl.textContent = `${progress.percent}%`;
+          statusEl.style.color = 'var(--muted)';
+        }
+      });
 
       if (data.error) {
-        bar.style.background = 'var(--red)';
+        bar.classList.remove('processing', 'done');
+        bar.classList.add('error');
         bar.style.width = '100%';
         statusEl.textContent = 'Error';
         statusEl.style.color = 'var(--red)';
@@ -605,21 +652,33 @@ async function handleFiles(files) {
         continue;
       }
 
+      bar.classList.remove('processing', 'error');
+      bar.classList.add('done');
       bar.style.width = '100%';
       statusEl.textContent = 'Done';
       statusEl.style.color = 'var(--green)';
 
-      await fetch('/api/slides', {
+      const slideRes = await fetch('/api/slides', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: data.type, src: data.filename, duration: data.duration })
       });
+      if (!slideRes.ok) throw new Error(`Slide registration failed (HTTP ${slideRes.status})`);
 
       const durationNote = data.type === 'video'
         ? ` · ${data.duration}s${data.duration_source === 'detected' ? ' (auto-detected)' : ' (fallback)'}`
         : '';
       toast(`Uploaded: ${file.name}${durationNote}`);
     } catch (err) {
+      const bar = document.getElementById(`bar-${itemId}`);
+      const statusEl = document.getElementById(`status-${itemId}`);
+      bar.classList.remove('processing', 'done');
+      bar.classList.add('error');
+      if (!bar.style.width || bar.style.width === '0%') {
+        bar.style.width = '100%';
+      }
+      statusEl.textContent = 'Error';
+      statusEl.style.color = 'var(--red)';
       toast(`Upload failed: ${file.name}`, 'error');
       console.error('Upload error:', err);
     }

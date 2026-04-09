@@ -173,7 +173,7 @@ After=network.target
 [Service]
 User=pi
 WorkingDirectory=/home/pi/ads-runner
-ExecStart=/home/pi/ads-runner/venv/bin/gunicorn --workers 2 --bind 0.0.0.0:3001 --chdir /home/pi/ads-runner upload_app:app
+ExecStart=/home/pi/ads-runner/venv/bin/gunicorn --workers 2 --bind 0.0.0.0:3001 --chdir /home/pi/ads-runner --timeout 300 --graceful-timeout 30 upload_app:app
 Restart=always
 RestartSec=5
 
