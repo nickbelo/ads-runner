@@ -253,8 +253,12 @@
     padding: 11px 0;
     border-bottom: 1px solid var(--border);
     animation: fadeIn 0.2s ease;
+    transition: background 0.15s, opacity 0.15s;
   }
   .slide-item:last-child { border-bottom: none; }
+  .slide-item.draggable { cursor: grab; }
+  .slide-item.dragging { opacity: 0.45; }
+  .slide-item.drag-over { background: var(--accent-bg); }
 
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(3px); }
@@ -319,6 +323,17 @@
   }
 
   .slide-actions { display: flex; gap: 5px; flex-shrink: 0; }
+  .drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    color: var(--muted);
+    font-size: 16px;
+    user-select: none;
+    cursor: grab;
+  }
+  .drag-handle:active { cursor: grabbing; }
 
   .count-badge {
     background: var(--accent-bg);
@@ -512,7 +527,7 @@ async function loadSlides() {
   try {
     const res = await fetch('/api/slides');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const slides = await res.json();
+    const slides = (await res.json()).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
     document.getElementById('slide-count').textContent =
       slides.length === 1 ? '1 slide' : `${slides.length} slides`;
@@ -525,8 +540,9 @@ async function loadSlides() {
     list.innerHTML = '';
     slides.forEach(slide => {
       const li = document.createElement('li');
-      li.className = 'slide-item';
+      li.className = 'slide-item draggable';
       li.dataset.id = slide.id;
+      li.draggable = true;
 
       let thumbHtml = '';
       if (slide.type === 'image') {
@@ -542,6 +558,7 @@ async function loadSlides() {
       const nameClass = slide.active ? 'slide-name' : 'slide-name inactive';
 
       li.innerHTML = `
+        <div class="drag-handle" title="Drag to reorder">⋮⋮</div>
         <div class="slide-thumb">${thumbHtml}</div>
         <div class="slide-info">
           <div class="${nameClass}" title="${slide.src}">${slide.src}</div>
@@ -557,6 +574,11 @@ async function loadSlides() {
           <button class="btn btn-danger btn-sm" onclick="deleteSlide('${slide.id}')">Remove</button>
         </div>
       `;
+      li.addEventListener('dragstart', handleDragStart);
+      li.addEventListener('dragover', handleDragOver);
+      li.addEventListener('dragleave', handleDragLeave);
+      li.addEventListener('drop', handleDrop);
+      li.addEventListener('dragend', handleDragEnd);
       list.appendChild(li);
     });
 
@@ -738,6 +760,72 @@ async function toggleSlide(id, activeState) {
   } catch (err) {
     toast('Failed to update slide', 'error');
   }
+}
+
+let draggedSlideId = null;
+
+function handleDragStart(event) {
+  draggedSlideId = this.dataset.id;
+  this.classList.add('dragging');
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', draggedSlideId);
+}
+
+function handleDragOver(event) {
+  event.preventDefault();
+  if (this.dataset.id !== draggedSlideId) {
+    this.classList.add('drag-over');
+  }
+  event.dataTransfer.dropEffect = 'move';
+}
+
+function handleDragLeave() {
+  this.classList.remove('drag-over');
+}
+
+async function handleDrop(event) {
+  event.preventDefault();
+  this.classList.remove('drag-over');
+
+  const sourceId = event.dataTransfer.getData('text/plain') || draggedSlideId;
+  const targetId = this.dataset.id;
+  if (!sourceId || !targetId || sourceId === targetId) return;
+
+  try {
+    await reorderSlides(sourceId, targetId);
+    toast('Playlist order updated');
+    await loadSlides();
+  } catch (err) {
+    toast(`Failed to reorder slide: ${err.message}`, 'error');
+  }
+}
+
+function handleDragEnd() {
+  draggedSlideId = null;
+  document.querySelectorAll('.slide-item').forEach(item => {
+    item.classList.remove('dragging', 'drag-over');
+  });
+}
+
+async function reorderSlides(sourceId, targetId) {
+  const res = await fetch('/api/slides');
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+  const slides = (await res.json()).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const sourceIndex = slides.findIndex(slide => slide.id === sourceId);
+  const targetIndex = slides.findIndex(slide => slide.id === targetId);
+  if (sourceIndex === -1 || targetIndex === -1) throw new Error('Slide not found');
+
+  const reordered = [...slides];
+  const [moved] = reordered.splice(sourceIndex, 1);
+  reordered.splice(targetIndex, 0, moved);
+
+  const saveRes = await fetch('/api/slides/reorder', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(reordered)
+  });
+  if (!saveRes.ok) throw new Error(`HTTP ${saveRes.status}`);
 }
 
 let toastTimer = null;
