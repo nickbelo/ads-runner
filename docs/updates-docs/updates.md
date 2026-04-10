@@ -7,7 +7,7 @@ Feature updates:
 5. Screen on/off control — use HDMI CEC to turn the LG TV on/off on a schedule directly from the RPi            *pending
 6. Multi-display support — if you ever add a second RPi and TV                                                  *pending
 7. Authentication on the admin panel — basic login so the upload page isn't open to everyone on the network     *done
-8. Arranging slides in Admin Page                                                                               *in-progress
+8. Arranging slides in Admin Page                                                                               *done
 
 Bugs fixes:
 
