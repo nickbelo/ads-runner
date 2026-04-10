@@ -65,7 +65,17 @@ def load_slides():
     return []
 
 
+def normalize_slide_order(slides):
+    normalized = []
+    for index, slide in enumerate(slides):
+        item = dict(slide)
+        item['order'] = index
+        normalized.append(item)
+    return normalized
+
+
 def save_slides(slides):
+    slides = normalize_slide_order(slides)
     with open(SLIDES_FILE, 'w') as f:
         json.dump(slides, f, indent=2)
 
@@ -157,7 +167,8 @@ def admin():
 @app.route('/api/slides', methods=['GET'])
 @login_required
 def get_slides():
-    return jsonify(load_slides())
+    slides = sorted(load_slides(), key=lambda slide: slide.get('order', 0))
+    return jsonify(slides)
 
 
 @app.route('/api/slides', methods=['POST'])

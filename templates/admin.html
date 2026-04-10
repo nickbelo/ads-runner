@@ -319,6 +319,7 @@
   }
 
   .slide-actions { display: flex; gap: 5px; flex-shrink: 0; }
+  .move-stack { display: flex; gap: 5px; }
 
   .count-badge {
     background: var(--accent-bg);
@@ -512,7 +513,7 @@ async function loadSlides() {
   try {
     const res = await fetch('/api/slides');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const slides = await res.json();
+    const slides = (await res.json()).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
     document.getElementById('slide-count').textContent =
       slides.length === 1 ? '1 slide' : `${slides.length} slides`;
@@ -551,6 +552,14 @@ async function loadSlides() {
           </div>
         </div>
         <div class="slide-actions">
+          <div class="move-stack">
+            <button class="btn btn-ghost btn-sm" onclick="moveSlide('${slide.id}', -1)" ${slides[0].id === slide.id ? 'disabled' : ''}>
+              Up
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="moveSlide('${slide.id}', 1)" ${slides[slides.length - 1].id === slide.id ? 'disabled' : ''}>
+              Down
+            </button>
+          </div>
           <button class="btn btn-ghost btn-sm" onclick="toggleSlide('${slide.id}', ${!slide.active})">
             ${slide.active ? 'Hide' : 'Show'}
           </button>
@@ -737,6 +746,35 @@ async function toggleSlide(id, activeState) {
     await loadSlides();
   } catch (err) {
     toast('Failed to update slide', 'error');
+  }
+}
+
+async function moveSlide(id, direction) {
+  try {
+    const res = await fetch('/api/slides');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const slides = (await res.json()).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const index = slides.findIndex(slide => slide.id === id);
+    if (index === -1) throw new Error('Slide not found');
+
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= slides.length) return;
+
+    const reordered = [...slides];
+    [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+
+    const saveRes = await fetch('/api/slides/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reordered)
+    });
+    if (!saveRes.ok) throw new Error(`HTTP ${saveRes.status}`);
+
+    toast(direction < 0 ? 'Slide moved up' : 'Slide moved down');
+    await loadSlides();
+  } catch (err) {
+    toast(`Failed to reorder slide: ${err.message}`, 'error');
   }
 }
 
