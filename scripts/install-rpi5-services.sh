@@ -66,7 +66,13 @@ After=network.target
 [Service]
 User=${ADS_USER}
 WorkingDirectory=${ADS_DIR}
-ExecStart=${ADS_DIR}/venv/bin/gunicorn --workers 1 --bind 127.0.0.1:3000 --chdir ${ADS_DIR} app:app
+ExecStart=${ADS_DIR}/venv/bin/gunicorn \
+  --workers 2 \
+  --bind 127.0.0.1:3000 \
+  --chdir ${ADS_DIR} \
+  --timeout 300 \
+  --graceful-timeout 30 \
+  app:app
 Restart=always
 RestartSec=5
 
@@ -83,7 +89,15 @@ After=network.target
 [Service]
 User=${ADS_USER}
 WorkingDirectory=${ADS_DIR}
-ExecStart=${ADS_DIR}/venv/bin/gunicorn --workers 2 --bind 0.0.0.0:3001 --chdir ${ADS_DIR} --timeout 300 --graceful-timeout 30 upload_app:app
+ExecStart=${ADS_DIR}/venv/bin/gunicorn \
+  --workers 2 \
+  --bind 0.0.0.0:3001 \
+  --chdir ${ADS_DIR} \
+  --timeout 300 \
+  --graceful-timeout 30 \
+  --limit-request-line 0 \
+  --limit-request-field_size 0 \
+  upload_app:app
 Restart=always
 RestartSec=5
 
