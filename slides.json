@@ -1,0 +1,18 @@
+[
+  {
+    "active": true,
+    "duration": 180,
+    "id": "f08a5db6-5753-4f3b-9ee9-644a326b00db",
+    "order": 0,
+    "src": "http://localhost:3100/display?v=20260414-1",
+    "type": "url"
+  },
+  {
+    "active": true,
+    "duration": 156,
+    "id": "87bed6c0-5ec5-4444-85aa-c9e976c8b39c",
+    "order": 1,
+    "src": "New_Presentation_cd2606.mp4",
+    "type": "video"
+  }
+]
